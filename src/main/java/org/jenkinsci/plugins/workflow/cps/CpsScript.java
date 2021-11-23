@@ -25,6 +25,7 @@
 package org.jenkinsci.plugins.workflow.cps;
 
 import com.cloudbees.groovy.cps.SerializableScript;
+import groovy.lang.Binding;
 import groovy.lang.GroovyShell;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
@@ -53,7 +54,7 @@ import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
  * @author Kohsuke Kawaguchi
  */
 @PersistIn(PROGRAM)
-public abstract class CpsScript extends SerializableScript {
+public abstract class CpsScript extends SerializableScript implements Cloneable {
 
     private static final Logger LOGGER = Logger.getLogger(CpsScript.class.getName());
 
@@ -243,4 +244,22 @@ public abstract class CpsScript extends SerializableScript {
     }
 
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Create clone of {@link CpsScript} with overriding of stateful fields {@link Binding} and {@link CpsFlowExecution}
+     *
+     * @return {@link CpsScript}
+     */
+    public CpsScript cloneScript(Binding context, CpsFlowExecution execution) {
+        try {
+            CpsScript clonedObject = (CpsScript) super.clone();
+            clonedObject.setBinding(context);
+            clonedObject.execution = execution;
+            return clonedObject;
+        } catch (CloneNotSupportedException exception) {
+            //unreached branch till class implements Cloneable interface
+            LOGGER.log(Level.WARNING, "Clone of script failed");
+            return null;
+        }
+    }
 }
