@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
@@ -20,6 +21,7 @@ import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.SourceUnit;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.GroovySandbox;
+import org.jenkinsci.plugins.workflow.cps.cache.CpsParseCache;
 
 /**
  * {@link GroovyShell} with additional tweaks necessary to run {@link CpsScript}
@@ -30,6 +32,21 @@ import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.GroovySandbox;
 class CpsGroovyShell extends GroovyShell {
 
     private static final Logger LOGGER = Logger.getLogger(CpsGroovyShell.class.getName());
+
+    /**
+     * {@link CpsParseCache} is the cache for avoid parsing for already known scripts {@link CpsScript}.
+     *
+     * Null is a valid value in case if cache disabled on Jenkins instance level.
+     */
+    private final static CpsParseCache parseCache;
+
+    static {
+        if(CpsParseCache.ENABLE_CACHE) {
+            parseCache = new CpsParseCache();
+        } else {
+            parseCache = null;
+        }
+    }
 
     /**
      * {@link CpsFlowExecution} for which this shell is created.
@@ -129,22 +146,32 @@ class CpsGroovyShell extends GroovyShell {
 
     private Script doParse(GroovyCodeSource codeSource) throws CompilationFailedException {
         GroovySandbox sandbox = new GroovySandbox();
+        GroovyClassLoaderWhitelist whitelist;
         if (execution != null) {
-            sandbox.withWhitelist(new GroovyClassLoaderWhitelist(Whitelist.all(),
-                execution.getTrustedShell().getClassLoader(),
-                execution.getShell().getClassLoader()));
+            whitelist = new GroovyClassLoaderWhitelist(Whitelist.all(),
+                    execution.getTrustedShell().getClassLoader(),
+                    execution.getShell().getClassLoader());
         } else {
-            sandbox.withWhitelist(new GroovyClassLoaderWhitelist(Whitelist.all(), getClassLoader()));
+            whitelist = new GroovyClassLoaderWhitelist(Whitelist.all(), getClassLoader());
         }
-        try (GroovySandbox.Scope scope = sandbox.enter()) {
-            if (execution != null) {
-                try (CpsFlowExecution.Timing t = execution.time(CpsFlowExecution.TimingKind.parse)) {
+        sandbox.withWhitelist(whitelist);
+
+        Supplier<Script> parseFunction = () -> {
+            try (GroovySandbox.Scope scope = sandbox.enter()) {
+                if (execution != null) {
+                    try (CpsFlowExecution.Timing t = execution.time(CpsFlowExecution.TimingKind.parse)) {
+                        return super.parse(codeSource);
+                    }
+                } else {
                     return super.parse(codeSource);
                 }
-            } else {
-                return super.parse(codeSource);
             }
+        };
+
+        if (CpsParseCache.ENABLE_CACHE && execution != null) {
+            return parseCache.cacheScript(whitelist, codeSource, getContext(), execution, parseFunction);
         }
+        return parseFunction.get();
     }
 
     /**
