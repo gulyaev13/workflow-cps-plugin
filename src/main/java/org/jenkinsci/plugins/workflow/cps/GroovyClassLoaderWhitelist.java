@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.EnumeratingWhitelist;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.ProxyWhitelist;
@@ -70,6 +71,24 @@ class GroovyClassLoaderWhitelist extends Whitelist {
 
     @Override public String toString() {
         return super.toString() + "[" + delegate + "]";
+    }
+
+    @Override public boolean equals(Object obj){
+        if (!(obj instanceof GroovyClassLoaderWhitelist)){
+            return false;
+        }
+        if(this == obj) {
+            return true;
+        }
+        GroovyClassLoaderWhitelist other = (GroovyClassLoaderWhitelist) obj;
+        if(!Objects.equals(delegate, other.delegate)) {
+            return false;
+        }
+        return Arrays.equals(scriptLoaders.toArray(), other.scriptLoaders.toArray());
+    }
+
+    @Override public int hashCode() {
+        return Objects.hash(Arrays.asList(delegate, scriptLoaders.toArray()).toArray());
     }
 
 }
