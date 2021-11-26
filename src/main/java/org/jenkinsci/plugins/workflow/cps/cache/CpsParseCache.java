@@ -6,7 +6,6 @@ import groovy.lang.GroovyCodeSource;
 import groovy.lang.Script;
 import hudson.model.Queue;
 import hudson.model.Run;
-import jenkins.util.SystemProperties;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.CpsScript;
@@ -24,9 +23,9 @@ public class CpsParseCache {
 
     private static final Logger LOGGER = Logger.getLogger(CpsParseCache.class.getName());
 
-    public static final boolean ENABLE_CACHE = SystemProperties.getBoolean(CpsParseCache.class.getName() + ".ENABLE_CACHE", true);
+    public static final boolean ENABLE_CACHE = Boolean.getBoolean(CpsParseCache.class.getName() + ".ENABLE_CACHE");
 
-    public static final int CACHE_SIZE = SystemProperties.getInteger(CpsParseCache.class.getName() + ".CACHE_SIZE", 50);
+    public static final int CACHE_SIZE = Integer.getInteger(CpsParseCache.class.getName() + ".CACHE_SIZE", 50);
 
     private final Map<CpsScriptCacheKey, CpsScriptCacheValue> cacheMap = new ConcurrentHashMap<>();
 
