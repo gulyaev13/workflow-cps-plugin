@@ -5,7 +5,6 @@ import hudson.model.Action;
 import org.jenkinsci.plugins.workflow.cps.CpsScript;
 
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -17,15 +16,15 @@ public final class CpsScriptCacheValue {
     final List<Action> actions;
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    final List<URL> shellURLs;
-
-    @SuppressFBWarnings("EI_EXPOSE_REP")
     final List<URL> trustedShellURLs;
 
-    public CpsScriptCacheValue(CpsScript script, List<Action> actions, URL[] shellURLs, URL[] trustedShellURLs) {
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    final String libCacheDir;
+
+    public CpsScriptCacheValue(CpsScript script, List<Action> actions, List<URL> trustedShellURLs, String libCacheDir) {
         this.script = script;
         this.actions = Collections.unmodifiableList(actions);
-        this.shellURLs = Collections.unmodifiableList(Arrays.asList(shellURLs));
-        this.trustedShellURLs = Collections.unmodifiableList(Arrays.asList(trustedShellURLs));
+        this.trustedShellURLs = Collections.unmodifiableList(trustedShellURLs);
+        this.libCacheDir = libCacheDir;
     }
 }
