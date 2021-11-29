@@ -8,6 +8,7 @@ import hudson.FilePath;
 import hudson.model.Action;
 import hudson.model.Queue;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
@@ -50,6 +51,7 @@ public class CpsParseCache {
         CpsScript script = null;
         CpsScriptCacheKey cacheKey = new CpsScriptCacheKey(whitelist, codeSource);
         try {
+            TaskListener listener = execution.getOwner().getListener();
             Queue.Executable executable = execution.getOwner().getExecutable();
             Run<?,?> build;
             if(executable instanceof Run) {
@@ -66,8 +68,9 @@ public class CpsParseCache {
                     cacheValue = cacheMap.get(cacheKey);
                     if (cacheValue == null) {
                         script = (CpsScript) scriptParseFunction.get();
-                        cacheValue = createCacheValue(execution, script, build);
+                        cacheValue = createCacheValue(execution, script, build, listener);
                         if (cacheValue != null) {
+                            listener.getLogger().println("Store script in cache");
                             cacheMap.put(cacheKey, cacheValue);
                         }
                         //no need deep copy
@@ -75,15 +78,23 @@ public class CpsParseCache {
                     }
                 }
             }
-
+            listener.getLogger().println("Extract script from cache");
+            if (cacheValue.libCacheDir != null) {
+                FilePath libCacheDir = new FilePath(getLibraryCacheDir(), cacheValue.libCacheDir);
+                if (!libCacheDir.isDirectory()) {
+                    String message = "Script cache is corrupted. Libraries cache dir isn't exist - " + libCacheDir.getRemote();
+                    listener.getLogger().println(message);
+                    cacheMap.remove(cacheKey);
+                    throw new IllegalStateException(message);
+                }
+            }
             script = cacheValue.script;
             cacheValue.trustedShellURLs.forEach(trustedClassLoader::addURL);
             cacheValue.actions.forEach(build::addAction);
 
             return script.cloneScript(context, execution);
         } catch (Exception exception) {
-            LOGGER.log(Level.WARNING, "Clone script failed: {0}: {1}", new Object[]{exception, exception.getMessage()});
-            LOGGER.log(Level.WARNING, Arrays.toString(exception.getStackTrace()));
+            LOGGER.log(Level.WARNING, "Clone script failed: " + exception.getMessage(), exception);
         }
         if(script == null) {
             script = (CpsScript) scriptParseFunction.get();
@@ -91,7 +102,8 @@ public class CpsParseCache {
         return script;
     }
 
-    private CpsScriptCacheValue createCacheValue(CpsFlowExecution execution, CpsScript script, Run<?,?> build) {
+    private CpsScriptCacheValue createCacheValue(CpsFlowExecution execution, CpsScript script, Run<?,?> build, TaskListener listener) {
+        listener.getLogger().println("Create script cache entry");
         CpsScript clonedScript = script.cloneScript(new Binding(), null);
         Action librariesAction = build.getAllActions()
                 .stream()
@@ -101,8 +113,11 @@ public class CpsParseCache {
         LibrariesCache libCache = null;
         if (librariesAction != null) {
             try {
-                libCache = cacheLibraries(librariesAction, execution);
+                libCache = cacheLibraries(librariesAction, execution, listener);
             } catch (Exception e) {
+                String message = String.format("Error during caching libraries: %s: %s", e, e.getMessage());
+                listener.getLogger().println(message);
+                LOGGER.log(Level.WARNING, message);
                 return null;
             }
         }
@@ -112,7 +127,7 @@ public class CpsParseCache {
                 libCache != null ? libCache.dirName : null);
     }
 
-    private LibrariesCache cacheLibraries(Action action, CpsFlowExecution execution) throws NoSuchFieldException, IllegalAccessException, InterruptedException, IOException {
+    private LibrariesCache cacheLibraries(Action action, CpsFlowExecution execution, TaskListener listener) throws NoSuchFieldException, IllegalAccessException, InterruptedException, IOException {
         final String libraryCacheDirName = UUID.randomUUID().toString();
         final FilePath libraryCacheDir = new FilePath(getLibraryCacheDir(), libraryCacheDirName);
         final FilePath buildRootDir = new FilePath(execution.getOwner().getRootDir());
@@ -139,6 +154,7 @@ public class CpsParseCache {
                 }
                 if (!cachedLibs.contains(libName)) {
                     FilePath libCachePath = libraryCacheDir.child(libName);
+                    listener.getLogger().println("Cache library " + libPath.getRemote() + " to " + libCachePath.getRemote());
                     libraryCacheDir.mkdirs();
                     libPath.copyRecursiveTo(libCachePath);
                     FilePath srcDir = libCachePath.child("src");
