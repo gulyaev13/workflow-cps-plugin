@@ -43,7 +43,7 @@ public class CpsParseCache {
 
     private final Map<CpsScriptCacheKey, CpsScriptCacheValue> cacheMap = new ConcurrentHashMap<>();
 
-    //Composite key GroovyClassLoaderWhitelist and GroovyCodeSource
+    //Composite key Whitelist and GroovyCodeSource
     public Script cacheScript(@Nonnull Whitelist whitelist, @Nonnull GroovyCodeSource codeSource,
                               @Nonnull Binding context, @Nonnull CpsFlowExecution execution,
                               @Nonnull Supplier<Script> scriptParseFunction) {
@@ -56,7 +56,7 @@ public class CpsParseCache {
             if(executable instanceof Run) {
                 build = (Run<?,?>) executable;
             } else {
-                throw new CloneNotSupportedException("");
+                throw new IllegalStateException("Executable " + executable + " isn't instance Run");
             }
 
             GroovyClassLoader trustedClassLoader = execution.getTrustedShell().getClassLoader();
