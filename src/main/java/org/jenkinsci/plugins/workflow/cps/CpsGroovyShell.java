@@ -38,15 +38,7 @@ class CpsGroovyShell extends GroovyShell {
      *
      * Null is a valid value in case if cache disabled on Jenkins instance level.
      */
-    private final static CpsParseCache parseCache;
-
-    static {
-        if(CpsParseCache.ENABLE_CACHE) {
-            parseCache = new CpsParseCache();
-        } else {
-            parseCache = null;
-        }
-    }
+    private final static CpsParseCache parseCache = CpsParseCache.getInstance();
 
     /**
      * {@link CpsFlowExecution} for which this shell is created.

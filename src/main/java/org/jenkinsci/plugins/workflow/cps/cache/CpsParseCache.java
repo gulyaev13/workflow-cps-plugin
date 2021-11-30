@@ -4,6 +4,7 @@ import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyCodeSource;
 import groovy.lang.Script;
+import hudson.Extension;
 import hudson.FilePath;
 import hudson.model.Action;
 import hudson.model.Queue;
@@ -31,6 +32,10 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Shared singleton cache for the {@link CpsScript}
+ */
+@Extension
 public class CpsParseCache {
 
     private static final Logger LOGGER = Logger.getLogger(CpsParseCache.class.getName());
@@ -42,6 +47,15 @@ public class CpsParseCache {
     private static final String LIBRARIES_PARSE_CACHE_DIR = "parse-cache-libraries";
 
     private final Map<CpsScriptCacheKey, CpsScriptCacheValue> cacheMap = new ConcurrentHashMap<>();
+
+    public static CpsParseCache getInstance() {
+        if (ENABLE_CACHE) {
+            return Jenkins.get().getExtensionList(CpsParseCache.class).get(0);
+        }
+        return null;
+    }
+
+    public CpsParseCache() {}
 
     //Composite key Whitelist and GroovyCodeSource
     public Script cacheScript(@Nonnull Whitelist whitelist, @Nonnull GroovyCodeSource codeSource,
