@@ -14,6 +14,8 @@ import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.cps.CpsScript;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -36,6 +38,7 @@ import java.util.logging.Logger;
  * Shared singleton cache for the {@link CpsScript}
  */
 @Extension
+@Restricted(NoExternalUse.class)
 public class CpsParseCache {
 
     private static final Logger LOGGER = Logger.getLogger(CpsParseCache.class.getName());
@@ -53,6 +56,10 @@ public class CpsParseCache {
             return Jenkins.get().getExtensionList(CpsParseCache.class).get(0);
         }
         return null;
+    }
+
+    Map<CpsScriptCacheKey, CpsScriptCacheValue> getCacheMap() {
+        return Collections.unmodifiableMap(cacheMap);
     }
 
     public CpsParseCache() {}
@@ -201,7 +208,7 @@ public class CpsParseCache {
         return libraryNames;
     }
 
-    private static FilePath getLibraryCacheDir() {
+    public static FilePath getLibraryCacheDir() {
         Jenkins jenkins = Jenkins.get();
         return new FilePath(jenkins.getRootPath(), LIBRARIES_PARSE_CACHE_DIR);
     }
