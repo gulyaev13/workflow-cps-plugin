@@ -7,6 +7,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsScript;
 import java.net.URL;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public final class CpsScriptCacheValue {
     @SuppressFBWarnings("EI_EXPOSE_REP")
@@ -16,15 +17,24 @@ public final class CpsScriptCacheValue {
     final List<Action> actions;
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    final List<URL> trustedShellURLs;
+    final LibrariesCache librariesCache;
 
-    @SuppressFBWarnings("EI_EXPOSE_REP")
-    final String libCacheDir;
-
-    public CpsScriptCacheValue(CpsScript script, List<Action> actions, List<URL> trustedShellURLs, String libCacheDir) {
+    public CpsScriptCacheValue(CpsScript script, List<Action> actions, LibrariesCache librariesCache) {
         this.script = script;
         this.actions = Collections.unmodifiableList(actions);
-        this.trustedShellURLs = Collections.unmodifiableList(trustedShellURLs);
-        this.libCacheDir = libCacheDir;
+        this.librariesCache = librariesCache;
+    }
+
+    static class LibrariesCache {
+        final static LibrariesCache EMPTY_VALUE = new LibrariesCache(null, Collections.emptyList(), Collections.emptySet());
+        final String directoryName;
+        final List<URL> urls;
+        final Set<String> libraryNames;
+
+        LibrariesCache(String directoryName, List<URL> urls, Set<String> libraryNames) {
+            this.directoryName = directoryName;
+            this.urls = urls;
+            this.libraryNames = libraryNames;
+        }
     }
 }

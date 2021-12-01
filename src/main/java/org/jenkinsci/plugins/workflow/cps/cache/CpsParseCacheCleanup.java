@@ -29,7 +29,7 @@ public class CpsParseCacheCleanup extends AsyncPeriodicWork {
             libraryCacheDir.deleteRecursive();
         } else {
             Set<FilePath> currentCache = parseCache.getCacheMap().values().stream()
-                    .map(cacheValue -> cacheValue.libCacheDir)
+                    .map(cacheValue -> cacheValue.librariesCache.directoryName)
                     .filter(Objects::nonNull)
                     .map(libraryCacheDir::child)
                     .collect(Collectors.toSet());
