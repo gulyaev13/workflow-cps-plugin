@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.workflow.cps.cache;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalNotification;
 import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyCodeSource;
@@ -30,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,11 +50,11 @@ public class CpsParseCache {
 
     public static final boolean ENABLE_CACHE = Boolean.getBoolean(CpsParseCache.class.getName() + ".ENABLE_CACHE");
 
-    public static final int CACHE_SIZE = Integer.getInteger(CpsParseCache.class.getName() + ".CACHE_SIZE", 50);
+    private static final int CACHE_SIZE = Integer.getInteger(CpsParseCache.class.getName() + ".CACHE_SIZE", 50);
 
     private static final String LIBRARIES_PARSE_CACHE_DIR = "parse-cache-libraries";
 
-    private final Map<CpsScriptCacheKey, CpsScriptCacheValue> cacheMap = new ConcurrentHashMap<>();
+    private final Map<CpsScriptCacheKey, CpsScriptCacheValue> cacheMap;
 
     public static CpsParseCache getInstance() {
         if (ENABLE_CACHE) {
@@ -66,7 +67,24 @@ public class CpsParseCache {
         return Collections.unmodifiableMap(cacheMap);
     }
 
-    public CpsParseCache() {}
+    public CpsParseCache() {
+        cacheMap = CacheBuilder.newBuilder()
+                .maximumSize(CACHE_SIZE)
+                .removalListener((RemovalNotification<CpsScriptCacheKey, CpsScriptCacheValue> notification) -> {
+                    if(notification.getValue().librariesCache.directoryName != null) {
+                        FilePath libCachePath = new FilePath(getLibraryCacheDir(), notification.getValue().librariesCache.directoryName);
+                        try {
+                            if (libCachePath.isDirectory()) {
+                                libCachePath.deleteRecursive();
+                            }
+                        } catch (Exception ignored) {
+                            //will be deleted by CpsParseCacheCleanup
+                        }
+                    }
+                })
+                .build()
+                .asMap();
+    }
 
     //Composite key Whitelist and GroovyCodeSource
     public Script cacheScript(@Nonnull Whitelist whitelist, @Nonnull GroovyCodeSource codeSource,
