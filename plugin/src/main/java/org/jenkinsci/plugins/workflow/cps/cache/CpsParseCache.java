@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +71,7 @@ public class CpsParseCache {
         cacheMap = CacheBuilder.newBuilder()
                 .maximumSize(CACHE_SIZE)
                 .removalListener((RemovalNotification<CpsScriptCacheKey, CpsScriptCacheValue> notification) -> {
-                    if(notification.getValue().librariesCache.directoryName != null) {
+                    if(notification.getValue() != null && notification.getValue().librariesCache.directoryName != null) {
                         FilePath libCachePath = new FilePath(getLibraryCacheDir(), notification.getValue().librariesCache.directoryName);
                         try {
                             if (libCachePath.isDirectory()) {
@@ -182,7 +182,7 @@ public class CpsParseCache {
         final FilePath libraryCacheDir = new FilePath(getLibraryCacheDir(), libraryCacheDirName);
         final FilePath buildRootDir = new FilePath(execution.getOwner().getRootDir());
 
-        Collection<String> librariesNames = extractLibrariesNames(action);
+        Map<String, String> librariesInfo = extractLibrariesInfo(action);
         URL[] sourceURls = execution.getTrustedShell().getClassLoader().getURLs();
         List<URL> targetURLs = new ArrayList<>();
         Set<String> cachedLibs = new HashSet<>();
@@ -192,11 +192,13 @@ public class CpsParseCache {
             if (filePath.startsWith(buildRootDir.getRemote())) {
                 String libName = null;
                 FilePath libPath = null;
-                for (String name : librariesNames) {
-                    FilePath path = new FilePath(buildRootDir, "libs/" + name);
+                for (Map.Entry<String, String> libInfo : librariesInfo.entrySet()) {
+                    String libraryName = libInfo.getKey();
+                    String libraryDirectoryName = libInfo.getValue();
+                    FilePath path = new FilePath(buildRootDir, "libs/" + libraryDirectoryName);
                     if(filePath.startsWith(path.getRemote())) {
                         libPath = path;
-                        libName = name;
+                        libName = libraryName;
                     }
                 }
                 if (libName == null) {
@@ -249,18 +251,22 @@ public class CpsParseCache {
         return urls;
     }
 
-    private Collection<String> extractLibrariesNames(Action action) throws NoSuchFieldException, IllegalAccessException {
+    private Map<String, String> extractLibrariesInfo(Action action) throws NoSuchFieldException, IllegalAccessException {
         Field librariesF = action.getClass().getDeclaredField("libraries");
         librariesF.setAccessible(true);
         List<Object> libraries = (List<Object>) librariesF.get(action);
 
-        Set<String> libraryNames = new HashSet<>();
+        Map<String, String> librariesInfo = new HashMap<>();
         for(Object library : libraries) {
             Field nameF = library.getClass().getDeclaredField("name");
             nameF.setAccessible(true);
-            libraryNames.add((String) nameF.get(library));
+            String libraryName = (String) nameF.get(library);
+            Field directoryNameF = library.getClass().getDeclaredField("directoryName");
+            directoryNameF.setAccessible(true);
+            String directoryName = (String) directoryNameF.get(library);
+            librariesInfo.put(libraryName, directoryName);
         }
-        return libraryNames;
+        return librariesInfo;
     }
 
     public static FilePath getLibraryCacheDir() {
